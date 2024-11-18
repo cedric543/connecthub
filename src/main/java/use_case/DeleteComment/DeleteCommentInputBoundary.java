@@ -12,4 +12,5 @@ public interface DeleteCommentInputBoundary {
      */
     void deleteComment(DeleteCommentInputData DeleteCommentInputData);
 
+    void switchToDeleteCommentView();
 }

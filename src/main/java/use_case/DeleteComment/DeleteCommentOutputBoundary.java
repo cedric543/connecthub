@@ -4,8 +4,6 @@ package use_case.DeleteComment;
  * The output boundary for the Delete Comment Use Case.
  */
 public interface DeleteCommentOutputBoundary {
-
-
     /**
      * Prepares the success view for the Delete Comment Use Case.
      * @param outputData the output data
@@ -19,8 +17,9 @@ public interface DeleteCommentOutputBoundary {
     /**
      * Switches to the Comment View.
      */
+
     void switchToDeleteCommentView();
-    // for doing at a later date
+    // TODO for doing at a later date?
 
 
 }
