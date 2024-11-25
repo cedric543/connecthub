@@ -8,6 +8,8 @@ import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import use_case.delete_post.DeletePostFailedException;
+import use_case.delete_post.DeletePostOutputData;
 
 /**
  * The Login Interactor.
@@ -26,29 +28,31 @@ public class LoginInteractor implements use_case.login.LoginInputBoundary {
     }
 
     @Override
-    public void LoginUser(use_case.login.LoginInputData loginInputData) {
+    public void LoginUser(use_case.login.LoginInputData loginInputData) throws IncorrectPasswordException{
         final String email = loginInputData.getEmail();
         final String password = loginInputData.getPassword();
+
         if (!loginDB.existsByEmail(email)) {
             loginOutput.prepareFailView(email + ": Account does not exist.");
             throw new AccountDoesNotExistException(email + ": Account does not exist.");
         }
+
         else {
-            final JSONObject userData = loginDB.getUserByEmail(loginInputData.getEmail());
+            final JSONObject userData = loginDB.getUserByEmail(email);
             final User user = this.jsonObjectToUser(userData);
-            final String pwd = user.getPassword();
-            if (!password.equals(pwd)) {
-                loginOutput.prepareFailView("Incorrect password for \"" + email + "\".");
-                throw new IncorrectPasswordException(email + ": Account does not exist.");
-            }
-            else {
+            try {
                 loginDB.setCurrentUser(user);
                 final LoginOutputData loginOutputData = new LoginOutputData(
                         user.getEmail(), user.getPassword(), true);
                 loginOutput.prepareSuccessView(loginOutputData);
+
+            } catch (Exception e) {
+                loginOutput.prepareFailView("Incorrect password for \"" + email + "\".");
+                throw new IncorrectPasswordException("Incorrect password for \"" + email + "\".");
             }
         }
     }
+
 
     private User jsonObjectToUser(JSONObject user) {
         JSONArray moderatingData = user.getJSONArray("moderating");

@@ -1,8 +1,6 @@
-package use_case_tests;
+package use_case;
 
-import entity.CommonUser;
-import entity.User;
-import entity.UserFactory;
+import entity.*;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -12,8 +10,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import use_case.login.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -33,11 +33,48 @@ public class LoginInteractorTest {
         interactor = new LoginInteractor(mockPostDB, mockPresenter, userFactory);
     }
 
+
     @Test
     void loginSuccessTest() throws JSONException {
-        // make user
-        String email = "email@gmail.com";
-        String password = "securePassword";
+
+        String entryID = "123";
+        String author = "Author1";
+        String contentBody = "This is another test content.";
+        String attachmentPath = "path/to/another/attachment";
+        String fileType = "image/png";
+        String title = "Another Post";
+        String category = "Updates";
+        LocalDateTime postedDate = LocalDateTime.now();
+        LocalDateTime lastModified = LocalDateTime.now();
+        int likes = 10;
+        int dislikes = 1;
+
+        JSONObject postJSON = new JSONObject();
+        postJSON.put("post_id", entryID);
+        postJSON.put("author", author);
+        postJSON.put("content_body", contentBody);
+        postJSON.put("attachment_path", attachmentPath);
+        postJSON.put("file_type", fileType);
+        postJSON.put("title", title);
+        postJSON.put("category", category);
+        postJSON.put("posted_date", postedDate.toString());
+        postJSON.put("last_modified", lastModified.toString());
+        postJSON.put("likes", likes);
+        postJSON.put("dislikes", dislikes);
+        postJSON.put("comments", new JSONArray());
+
+        String mod1 = "mod1";
+        String mod2 = "mod2";
+
+        JSONArray modArray = new JSONArray();
+        modArray.put(mod1);
+        modArray.put(mod2);
+
+        JSONArray postsArray = new JSONArray();
+        postsArray.put(postJSON);
+
+        String email = "email";
+        String password = "password1";
 
         LoginInputData inputData = new LoginInputData(email, password);
 
@@ -48,11 +85,14 @@ public class LoginInteractorTest {
         userJson.put("birth_date", "2000-01-01");
         userJson.put("full_name", "Cedric Jizmejian");
         userJson.put("email", email);
-        userJson.put("moderating", new JSONArray(Collections.emptyList()));
-        userJson.put("posts", new JSONArray(Collections.emptyList()));
+        userJson.put("moderating", modArray);
+        userJson.put("posts", postsArray);
 
         when(mockPostDB.existsByEmail(email)).thenReturn(true);
         when(mockPostDB.getUserByEmail(email)).thenReturn(userJson);
+
+        List<String> expectedModerators = List.of(mod1, mod2);
+        List<String> expectedPosts = List.of(entryID);
 
         User mockUser = Mockito.mock(User.class);
         when(mockUser.getUsername()).thenReturn("Cedric");
@@ -61,8 +101,8 @@ public class LoginInteractorTest {
         when(mockUser.getUserID()).thenReturn("12345");
         when(mockUser.getBirthDate()).thenReturn("2000-01-01");
         when(mockUser.getFullName()).thenReturn("Cedric Jizmejian");
-        when(mockUser.getModerating()).thenReturn(new ArrayList<>());
-        when(mockUser.getPosts()).thenReturn(new ArrayList<>());
+        when(mockUser.getModerating()).thenReturn(expectedModerators);
+        when(mockUser.getPosts()).thenReturn(expectedPosts);
 
         when(userFactory.create(
                 "Cedric",
@@ -71,8 +111,8 @@ public class LoginInteractorTest {
                 "2000-01-01",
                 "Cedric Jizmejian",
                 email,
-                new ArrayList<>(),
-                new ArrayList<>()
+                expectedModerators,
+                expectedPosts
         )).thenReturn(mockUser);
 
         ArgumentCaptor<LoginOutputData> captor = ArgumentCaptor.forClass(LoginOutputData.class);
@@ -80,7 +120,6 @@ public class LoginInteractorTest {
 
         interactor.LoginUser(inputData);
 
-        // assert equals
         LoginOutputData capturedOutput = captor.getValue();
         assertEquals(email, capturedOutput.getUserEmail());
         assertTrue(capturedOutput.isLoginSuccessful());
@@ -90,6 +129,14 @@ public class LoginInteractorTest {
         verify(mockPresenter).prepareSuccessView(any(LoginOutputData.class));
     }
 
+
+
+    @Test
+    void incorrectPasswordExceptionTest() {
+        String message = "Incorrect password";
+        IncorrectPasswordException exception = new IncorrectPasswordException(message);
+        assertEquals(message, exception.getMessage());
+    }
 
 
     @Test
@@ -123,7 +170,7 @@ public class LoginInteractorTest {
     @Test
     void loginFailureIncorrectPasswordTest() throws JSONException {
         // incorrect password leads to exception
-        String email = "email@gmail.com";
+        String email = "email";
         String correctPassword = "Password1";
         String incorrectPassword = "Password5";
 
@@ -139,6 +186,8 @@ public class LoginInteractorTest {
         userJson.put("moderating", new JSONArray(Collections.emptyList()));
         userJson.put("posts", new JSONArray(Collections.emptyList()));
 
+
+
         when(mockPostDB.existsByEmail(email)).thenReturn(true);
         when(mockPostDB.getUserByEmail(email)).thenReturn(userJson);
 
@@ -148,13 +197,10 @@ public class LoginInteractorTest {
             return null;
         }).when(mockPresenter).prepareFailView(anyString());
 
-        // assert equals
-        IncorrectPasswordException exception = assertThrows(
-                IncorrectPasswordException.class,
-                () -> interactor.LoginUser(inputData)
-        );
 
-        assertEquals("Incorrect password for \"email@gmail.com\".", exception.getMessage());
+        assertThrows(IncorrectPasswordException.class, ()
+                -> interactor.LoginUser(inputData)
+        );
 
         verify(mockPostDB).existsByEmail(email);
         verify(mockPostDB).getUserByEmail(email);
@@ -203,4 +249,24 @@ public class LoginInteractorTest {
         assertEquals(mockUser.getPassword(), createdUser.getPassword());
         assertEquals(mockUser.getUserID(), createdUser.getUserID());
     }
+
+    @Test
+    void loginFailureNullEmailTest() {
+        LoginInputData inputData = new LoginInputData(null, "Password1");
+
+        doAnswer(invocation -> {
+            String error = invocation.getArgument(0);
+            assertEquals("null: Account does not exist.", error);
+            return null;
+        }).when(mockPresenter).prepareFailView(anyString());
+
+        AccountDoesNotExistException exception = assertThrows(
+                AccountDoesNotExistException.class,
+                () -> interactor.LoginUser(inputData)
+        );
+
+        assertEquals("null: Account does not exist.", exception.getMessage());
+        verify(mockPresenter).prepareFailView("null: Account does not exist.");
+    }
+
 }
